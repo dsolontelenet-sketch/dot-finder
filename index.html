@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>No-Dot Finder — Column A</title>
+
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ec4899'>
+<path d='M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z'/>
+</svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Manrope:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --accent: #e84a1e;
+    --accent2: #1e40af;
+    --dark: #1a1a1a;
+    --muted: #8a8a8a;
+    --border: #e0ddd8;
+    --yellow: #fbbf24;
+    --green: #16a34a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--dark);
+    font-family: 'Manrope', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--dark);
+    color: #fff;
+    padding: 0 32px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .topbar-left { color: var(--yellow); }
+  .topbar-right { color: #666; }
+
+  /* Hero */
+  .hero {
+    background: var(--dark);
+    color: #fff;
+    padding: 48px 32px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: 'NO DOT';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 120px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.04);
+    font-family: 'Manrope', sans-serif;
+    pointer-events: none;
+    letter-spacing: -6px;
+    white-space: nowrap;
+  }
+  .hero-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -1.5px;
+    max-width: 600px;
+  }
+  h1 em {
+    color: var(--accent);
+    font-style: normal;
+    border-bottom: 4px solid var(--accent);
+  }
+  .hero-sub {
+    margin-top: 14px;
+    color: #9ca3af;
+    font-size: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    max-width: 480px;
+    line-height: 1.7;
+  }
+
+  /* Main content */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 56px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.over {
+    border-color: var(--accent);
+    background: #fff8f6;
+    box-shadow: 0 0 0 6px rgba(232,74,30,0.06);
+  }
+  .dz-icon { font-size: 52px; margin-bottom: 14px; display: block; }
+  .dz-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .dz-sub {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  input[type="file"] { display: none; }
+
+  /* File pill */
+  .file-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: none;
+    align-items: center;
+    gap: 14px;
+  }
+  .file-pill.show { display: flex; }
+  .pill-icon { font-size: 26px; }
+  .pill-name { font-size: 14px; font-weight: 700; }
+  .pill-meta { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+  .btn-clear {
+    margin-left: auto;
+    border: 1px solid var(--border);
+    background: none;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: 'Manrope', sans-serif;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .btn-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* How-it-works strip */
+  .how-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    display: flex;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .how-step {
+    flex: 1;
+    min-width: 150px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    border-right: 1px solid var(--border);
+  }
+  .how-step:last-child { border-right: none; }
+  .how-num {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .how-text { font-size: 12px; font-weight: 600; line-height: 1.4; }
+
+  /* Run button */
+  .btn-run {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn-run:disabled { background: #d1d5db; color: #9ca3af; cursor: not-allowed; }
+  .btn-run:not(:disabled):hover {
+    background: #c93a15;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(232,74,30,0.3);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  .btn-run.loading .spinner { display: block; }
+
+  /* Error */
+  .err {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #dc2626;
+    font-family: 'IBM Plex Mono', monospace;
+    display: none;
+  }
+  .err.show { display: block; }
+
+  /* Results */
+  .results {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: none;
+  }
+  .results.show { display: block; animation: up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+  @keyframes up { from { opacity:0; transform: translateY(18px); } to { opacity:1; transform: translateY(0); } }
+
+  /* Result header */
+  .res-header {
+    background: var(--dark);
+    color: #fff;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .res-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .chip-red   { background: rgba(232,74,30,0.2);  color: #f97316; }
+  .chip-blue  { background: rgba(30,64,175,0.2);  color: #60a5fa; }
+  .chip-green { background: rgba(22,163,74,0.15); color: #4ade80; }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    padding: 20px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-n { font-size: 32px; font-weight: 800; font-family: 'IBM Plex Mono', monospace; line-height: 1; }
+  .stat-n.orange { color: var(--accent); }
+  .stat-n.blue   { color: var(--accent2); }
+  .stat-n.green  { color: var(--green); }
+  .stat-l { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* Table */
+  .tbl-wrap { padding: 20px 24px; }
+  .tbl-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .tbl-scroll {
+    overflow: auto;
+    max-height: 320px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  th {
+    background: #f9f7f4;
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  th.col-a { color: var(--accent); font-weight: 700; }
+  td { padding: 9px 16px; border-bottom: 1px solid #f3f0eb; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fffaf8; }
+  .td-a { color: var(--accent); font-weight: 600; }
+  .td-orig-row { color: var(--muted); }
+
+  /* Download bar */
+  .dl-bar {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: #fafaf8;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .btn-dl {
+    flex: 1;
+    min-width: 160px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: 2px solid var(--dark);
+    background: var(--dark);
+    color: #fff;
+  }
+  .btn-dl:hover {
+    background: #333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+  .btn-dl-csv {
+    background: none;
+    color: var(--dark);
+  }
+  .btn-dl-csv:hover {
+    background: var(--dark);
+    color: #fff;
+  }
+
+  @media (max-width: 560px) {
+    .stats { grid-template-columns: repeat(3,1fr); }
+    .stat-n { font-size: 22px; }
+    .how-step { border-right: none; border-bottom: 1px solid var(--border); }
+    .how-step:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-left">// NO-DOT FINDER v1.0</span>
+  <span class="topbar-right">Column A · Excel Tool</span>
+</div>
+
+<div class="hero">
+  <div class="hero-tag">Excel Analyzer</div>
+  <h1>Find Column A<br>Rows <em>Without</em> a Dot</h1>
+  <p class="hero-sub">
+    Upload your Excel or CSV file → the tool scans Column A
+    and extracts every row where the value has no <code style="color:var(--yellow)">"."</code> in it.
+  </p>
+</div>
+
+<div class="container">
+
+  <!-- How it works -->
+  <div class="how-strip">
+    <div class="how-step"><div class="how-num">1</div><div class="how-text">Upload Excel / CSV file</div></div>
+    <div class="how-step"><div class="how-num">2</div><div class="how-text">Tool scans Column A for missing dots</div></div>
+    <div class="how-step"><div class="how-num">3</div><div class="how-text">Preview matching rows</div></div>
+    <div class="how-step"><div class="how-num">4</div><div class="how-text">Download clean .xlsx or .csv</div></div>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dz" onclick="document.getElementById('fi').click()">
+    <span class="dz-icon">📂</span>
+    <div class="dz-title">Drop your Excel file here</div>
+    <div class="dz-sub">.xlsx · .xls · .csv — or click to browse</div>
+    <input type="file" id="fi" accept=".xlsx,.xls,.csv">
+  </div>
+
+  <!-- File pill -->
+  <div class="file-pill" id="filePill">
+    <span class="pill-icon">📋</span>
+    <div>
+      <div class="pill-name" id="pillName">—</div>
+      <div class="pill-meta" id="pillMeta">—</div>
+    </div>
+    <button class="btn-clear" onclick="clearAll()">✕ Remove</button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+
+  <!-- Run button -->
+  <button class="btn-run" id="btnRun" onclick="runFind()" disabled>
+    <div class="spinner"></div>
+    <span>🔍 Find Rows Without "."</span>
+  </button>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="res-header">
+      <div class="res-title">🎯 Results — Rows Without a Dot in Column A</div>
+      <div class="chips">
+        <span class="chip chip-red"  id="chipFound">0 found</span>
+        <span class="chip chip-blue" id="chipTotal">0 total rows</span>
+        <span class="chip chip-green" id="chipHas">0 have dot</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-n" id="statTotal">0</div>
+        <div class="stat-l">Total Data Rows</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n orange" id="statNoDot">0</div>
+        <div class="stat-l">Without "."</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n green" id="statHasDot">0</div>
+        <div class="stat-l">Have "."</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-label">
+        <span>Matching rows (without dot) — preview</span>
+        <span id="previewCount"></span>
+      </div>
+      <div class="tbl-scroll">
+        <table id="previewTbl"></table>
+      </div>
+    </div>
+    <div class="dl-bar">
+      <button class="btn-dl" onclick="dlXlsx()">⬇ Download .xlsx</button>
+      <button class="btn-dl btn-dl-csv" onclick="dlCsv()">⬇ Download .csv</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let wb = null, allRows = [], headers = [], noDotRows = [], fileName = 'output';
+
+  // Drag & drop
+  const dz = document.getElementById('dz');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); loadFile(e.dataTransfer.files[0]); });
+  document.getElementById('fi').addEventListener('change', e => { if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+  function loadFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['xlsx','xls','csv'].includes(ext)) { showErr('Please upload a .xlsx, .xls, or .csv file.'); return; }
+    clearErr();
+    fileName = file.name.replace(/\.[^.]+$/, '');
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        headers = allRows[0] || [];
+        const dataRows = allRows.slice(1);
+        document.getElementById('pillName').textContent = file.name;
+        document.getElementById('pillMeta').textContent =
+          `${dataRows.length} data rows · ${headers.length} columns · ${(file.size/1024).toFixed(1)} KB`;
+        document.getElementById('filePill').classList.add('show');
+        document.getElementById('btnRun').disabled = false;
+        document.getElementById('results').classList.remove('show');
+      } catch(err) { showErr('Could not read file. Make sure it is a valid Excel or CSV.'); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function runFind() {
+    if (!wb) return;
+    const btn = document.getElementById('btnRun');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    setTimeout(() => {
+      try {
+        const dataRows = allRows.slice(1);
+        noDotRows = [];
+        let hasDot = 0;
+        dataRows.forEach((row, i) => {
+          const valA = String(row[0] ?? '').trim();
+          if (valA.includes('.')) { hasDot++; }
+          else { noDotRows.push({ origRow: i + 2, data: row }); }
+        });
+
+        const total = dataRows.length;
+        const noDotCount = noDotRows.length;
+
+        document.getElementById('statTotal').textContent  = total;
+        document.getElementById('statNoDot').textContent  = noDotCount;
+        document.getElementById('statHasDot').textContent = hasDot;
+        document.getElementById('chipFound').textContent  = noDotCount + ' without dot';
+        document.getElementById('chipTotal').textContent  = total + ' total rows';
+        document.getElementById('chipHas').textContent    = hasDot + ' have dot';
+
+        renderTable();
+        document.getElementById('results').classList.add('show');
+      } catch(e) { showErr('Error: ' + e.message); }
+      finally { btn.classList.remove('loading'); btn.disabled = false; }
+    }, 250);
+  }
+
+  function renderTable() {
+    const preview = noDotRows.slice(0, 100);
+    const colCount = Math.max(headers.length, preview[0]?.data.length || 1);
+    let html = '<thead><tr><th style="color:var(--muted);width:50px">Row</th>';
+    for (let i = 0; i < colCount; i++) {
+      const h = headers[i] || String.fromCharCode(65 + i);
+      html += `<th class="${i===0?'col-a':''}">${esc(String(h))}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    if (preview.length === 0) {
+      html += `<tr><td colspan="${colCount+1}" style="text-align:center;padding:24px;color:var(--muted);font-family:IBM Plex Mono,monospace">
+        ✅ All rows in Column A contain a "." — nothing to show.</td></tr>`;
+    } else {
+      preview.forEach(({origRow, data}) => {
+        html += `<tr><td class="td-orig-row">${origRow}</td>`;
+        for (let i = 0; i < colCount; i++) {
+          const v = data[i] ?? '';
+          html += `<td class="${i===0?'td-a':''}">${esc(String(v))}</td>`;
+        }
+        html += '</tr>';
+      });
+      if (noDotRows.length > 100) {
+        html += `<tr><td colspan="${colCount+1}" style="text-align:center;padding:14px;color:var(--muted);font-family:IBM Plex Mono,monospace;font-size:11px">
+          … ${noDotRows.length - 100} more rows — download to see all</td></tr>`;
+      }
+    }
+    html += '</tbody>';
+    document.getElementById('previewTbl').innerHTML = html;
+    document.getElementById('previewCount').textContent =
+      `showing ${Math.min(preview.length, 100)} of ${noDotRows.length}`;
+  }
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function dlXlsx() {
+    const out = XLSX.utils.book_new();
+    const rows = [headers, ...noDotRows.map(r => r.data)];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(out, ws, 'No Dot Rows');
+    XLSX.writeFile(out, fileName + '_no_dot.xlsx');
+  }
+
+  function dlCsv() {
+    const rows = [headers, ...noDotRows.map(r => r.data)];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = fileName + '_no_dot.csv';
+    a.click();
+  }
+
+  function clearAll() {
+    wb = null; allRows = []; headers = []; noDotRows = [];
+    document.getElementById('filePill').classList.remove('show');
+    document.getElementById('results').classList.remove('show');
+    document.getElementById('btnRun').disabled = true;
+    document.getElementById('fi').value = '';
+    clearErr();
+  }
+
+  function showErr(msg) { const e = document.getElementById('errBox'); e.textContent = '⚠ ' + msg; e.classList.add('show'); }
+  function clearErr() { document.getElementById('errBox').classList.remove('show'); }
+</script>
+</body>
+</html>
